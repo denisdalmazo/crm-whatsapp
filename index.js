@@ -1,4 +1,5 @@
 const express = require('express');
+const fs = require('fs');
 const app = express();
 app.use(express.json());
 
@@ -7,6 +8,24 @@ const QRCode = require('qrcode');
 
 let sock;
 
+// 📥 SALVAR LEAD
+function salvarLead(numero, texto) {
+    let leads = [];
+
+    try {
+        leads = JSON.parse(fs.readFileSync('leads.json'));
+    } catch (e) {}
+
+    leads.push({
+        numero,
+        texto,
+        data: new Date()
+    });
+
+    fs.writeFileSync('leads.json', JSON.stringify(leads, null, 2));
+}
+
+// 🚀 INICIAR WHATSAPP
 async function startWhats() {
     const { state, saveCreds } = await useMultiFileAuthState("auth");
 
@@ -16,7 +35,7 @@ async function startWhats() {
 
     sock.ev.on("creds.update", saveCreds);
 
-    // 🔥 GERAR QR
+    // 🔥 GERAR QR CODE
     sock.ev.on("connection.update", async (update) => {
         const { qr } = update;
 
@@ -31,7 +50,7 @@ async function startWhats() {
         }
     });
 
-    // 📩 RECEBER MENSAGEM
+    // 📩 RECEBER MENSAGENS
     sock.ev.on("messages.upsert", async ({ messages }) => {
         const msg = messages[0];
         if (!msg.message) return;
@@ -40,6 +59,9 @@ async function startWhats() {
         const numero = msg.key.remoteJid;
 
         console.log("Lead:", numero, texto);
+
+        // 💾 SALVA NO "CRM"
+        salvarLead(numero, texto);
 
         // 🤖 RESPOSTA AUTOMÁTICA
         await sock.sendMessage(numero, {
@@ -50,8 +72,19 @@ async function startWhats() {
 
 startWhats();
 
+// 🌐 ROTA PRINCIPAL
 app.get("/", (req, res) => {
     res.send("Sistema rodando");
+});
+
+// 📊 VER LEADS
+app.get("/leads", (req, res) => {
+    try {
+        const leads = JSON.parse(fs.readFileSync('leads.json'));
+        res.json(leads);
+    } catch (e) {
+        res.json([]);
+    }
 });
 
 app.listen(process.env.PORT || 3000, () => {

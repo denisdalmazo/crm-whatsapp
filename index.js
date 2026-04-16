@@ -51,7 +51,20 @@ async function startWhats() {
     });
 
     // 📩 RECEBER MENSAGENS
-    sock.ev.on("messages.upsert", async ({ messages }) => {
+    let qrGlobal = "";
+
+sock.ev.on("connection.update", async (update) => {
+    const { qr, connection } = update;
+
+    if (qr) {
+        console.log("QR GERADO");
+        qrGlobal = await QRCode.toDataURL(qr);
+    }
+
+    if (connection === "open") {
+        console.log("WhatsApp conectado!");
+    }
+});
         const msg = messages[0];
         if (!msg.message) return;
 
@@ -89,4 +102,11 @@ app.get("/leads", (req, res) => {
 
 app.listen(process.env.PORT || 3000, () => {
     console.log("Servidor rodando");
+
+    app.get("/qr", (req, res) => {
+    if (!qrGlobal) {
+        return res.send("QR ainda não gerado, aguarde...");
+    }
+    res.send(`<img src="${qrGlobal}" />`);
+});
 });
